@@ -5,5 +5,317 @@ generator client {
 datasource db {
   provider  = "postgresql"
   url       = env("DATABASE_URL")
-  directUrl = env("DIRECT_URL")
+}
+
+model Organization {
+  organizationId String    @id @default(cuid())
+  name           String
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  users          User[]
+  // Add other organization-specific fields if needed later (e.g., subscriptionPlanId)
+}
+
+model User {
+  userId       String    @id @default(cuid())
+  employeeId   String?   @unique
+  username     String    @unique
+  passwordHash String
+  email        String    @unique
+  isActive     Boolean   @default(true)
+  lastLogin    DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  role   Role? @relation(fields: [roleId], references: [roleId])
+  roleId String?
+
+  employee Employee? @relation(fields: [employeeId], references: [employeeId])
+
+  organization   Organization @relation(fields: [organizationId], references: [organizationId])
+  organizationId String
+}
+
+model Role {
+  roleId      String    @id @default(cuid())
+  name        String    @unique
+  description String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  users      User[]
+  permissions RolePermissionMapping[]
+}
+
+model Permission {
+  permissionId String    @id @default(cuid())
+  name         String    @unique // e.g., "create_user", "read_payroll"
+  group        String    // e.g., "User Management", "Payroll"
+  description  String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  roles RolePermissionMapping[]
+}
+
+model RolePermissionMapping {
+  rolePermissionId String  @id @default(cuid())
+  roleId           String
+  permissionId     String
+  createdAt        DateTime @default(now())
+
+  role       Role       @relation(fields: [roleId], references: [roleId], onDelete: Cascade)
+  permission Permission @relation(fields: [permissionId], references: [permissionId], onDelete: Cascade)
+
+  @@unique([roleId, permissionId])
+}
+
+model Employee {
+  employeeId        String    @id @default(cuid())
+  firstName         String
+  lastName          String
+  email             String    @unique // Should be unique within an organization, not globally if system supports multiple orgs for one email
+  phoneNumber       String?
+  dateOfBirth       DateTime? @db.Date
+  hireDate          DateTime  @db.Date
+  jobTitle          String
+  reportingToId     String?   // Self-relation for manager
+  isActive          Boolean   @default(true)
+  profilePictureUrl String?
+  address           Json?     // Store as JSON: { street, city, state, zipCode, country }
+  gender            String?
+  emergencyContact  Json?     // Store as JSON: { name, relationship, phone }
+  organizationId    String    // Each employee belongs to an organization
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  department   Department? @relation(fields: [departmentId], references: [departmentId])
+  departmentId String?
+
+  user User?
+
+  manager          Employee?  @relation("ReportingHierarchy", fields: [reportingToId], references: [employeeId])
+  directReports    Employee[] @relation("ReportingHierarchy")
+  salaryAssignments SalaryAssignment[]
+  leaveApplications LeaveApplication[]
+  attendances       Attendance[]
+  payrolls          Payroll[]
+  
+  @@index([organizationId, email]) // For faster lookups if email is unique per org
+  @@index([organizationId])
+}
+
+model Department {
+  departmentId String    @id @default(cuid())
+  name         String    // Name should be unique per organization
+  description  String?
+  organizationId String  // Departments are specific to an organization
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  employees Employee[]
+  @@unique([organizationId, name])
+  @@index([organizationId])
+}
+
+model SalaryComponent {
+  componentId     String  @id @default(cuid())
+  name            String  // Name should be unique per organization + type
+  type            String  // "EARNING" or "DEDUCTION"
+  calculationType String  // "FIXED", "PERCENTAGE", "FORMULA" 
+  formula         String? // For "FORMULA" type
+  isTaxable       Boolean @default(true)
+  description     String?
+  organizationId  String  // For multi-tenancy (already present)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  salaryStructureMappings SalaryComponentMapping[]
+
+  @@unique([organizationId, name, type])
+  @@index([organizationId])
+}
+
+model SalaryStructure {
+  structureId  String  @id @default(cuid())
+  name         String  // Name should be unique per organization
+  description  String?
+  isActive     Boolean @default(true)
+  organizationId String // For multi-tenancy (already present)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  componentMappings   SalaryComponentMapping[]
+  employeeAssignments SalaryAssignment[]
+
+  @@unique([organizationId, name])
+  @@index([organizationId])
+}
+
+model SalaryComponentMapping {
+  mappingId               String   @id @default(cuid())
+  structureId             String
+  componentId             String
+  
+  definedValue            Float?   // Value if component.calculationType is FIXED and structure overrides default, or base for percentage
+  percentageOfComponentId String?  // Optional: if component.calculationType is PERCENTAGE, this can link to another component's ID (e.g. Basic Pay)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  salaryStructure SalaryStructure @relation(fields: [structureId], references: [structureId], onDelete: Cascade)
+  salaryComponent SalaryComponent @relation(fields: [componentId], references: [componentId], onDelete: Cascade)
+
+  @@unique([structureId, componentId]) 
+  @@index([percentageOfComponentId])
+}
+
+model SalaryAssignment {
+  assignmentId  String    @id @default(cuid())
+  employeeId    String    // An employee can have multiple assignments over time, only one active
+  structureId   String
+  effectiveDate DateTime  @db.Date
+  basicSalary   Float     // The base salary upon which percentages might be calculated
+  customValues  Json?     // For overriding specific component values for this employee
+  grossSalary   Float?    // Optional: Store calculated gross for reference, can be computed
+  isActive      Boolean   @default(true)
+  organizationId String   // For data scoping
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  employee        Employee        @relation(fields: [employeeId], references: [employeeId], onDelete: Cascade)
+  salaryStructure SalaryStructure @relation(fields: [structureId], references: [structureId])
+  
+  @@index([employeeId])
+  @@index([organizationId])
+  @@index([isActive]) 
+}
+
+// Defines different categories of leave an employee can apply for
+model LeaveType {
+  leaveTypeId String    @id @default(cuid())
+  name        String    // Name should be unique per organization (e.g., "Annual Leave", "Sick Leave")
+  defaultDays Int       // Default number of days allocated per year/period for this leave type
+  isPaid      Boolean   @default(true) // Whether this leave type is paid
+  description String?   // Additional details about the leave type
+  organizationId String // Foreign key for the Organization this leave type belongs to
+
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  leaveApplications LeaveApplication[] // Relation to leave applications of this type
+
+  @@unique([organizationId, name]) // Ensures leave type names are unique within an organization
+  @@index([organizationId])
+}
+
+// Records individual leave requests made by employees
+model LeaveApplication {
+  applicationId String    @id @default(cuid())
+  employeeId    String    // Foreign key for the Employee applying for leave
+  leaveTypeId   String    // Foreign key for the Type of leave being applied for
+  startDate     DateTime  @db.Date // Start date of the leave period
+  endDate       DateTime  @db.Date // End date of the leave period (inclusive or exclusive based on policy)
+  reason        String?   // Reason for the leave application
+  status        String    @default("PENDING") // Status of the application: PENDING, APPROVED, REJECTED, CANCELLED
+  approvedById  String?   // User ID of the person who approved/rejected the application
+  comments      String?   // Comments from the approver or employee
+  organizationId String   // Foreign key for the Organization this application belongs to
+
+  appliedOn     DateTime  @default(now()) // When the application was submitted
+  updatedAt     DateTime  @updatedAt     // When the application was last updated
+
+  employee   Employee  @relation(fields: [employeeId], references: [employeeId], onDelete: Cascade)
+  leaveType  LeaveType @relation(fields: [leaveTypeId], references: [leaveTypeId])
+  // approver   User?     @relation("ApprovedLeaves", fields: [approvedById], references: [userId]) // If approver is a User; ensure User model has 'approvedLeaves' relation if used
+  @@index([organizationId])
+  @@index([employeeId])
+  @@index([status])
+}
+
+// Defines official holidays for an organization
+model Holiday {
+  holidayId      String   @id @default(cuid())
+  name           String   // e.g., "New Year's Day", "Independence Day"
+  date           DateTime @db.Date // The specific date of the holiday, store as Date only
+  organizationId String   // Foreign key for the Organization this holiday belongs to
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([organizationId, date]) // Ensures no duplicate holiday dates within an organization
+  // Alternative: @@unique([organizationId, name, date]) if same date can have multiple holiday names
+  @@index([organizationId])
+}
+
+model Attendance {
+  attendanceId String    @id @default(cuid())
+  employeeId   String
+  date         DateTime  @db.Date
+  status       String    // e.g., "PRESENT", "ABSENT", "LATE", "HOLIDAY", "LEAVE"
+  checkInTime  DateTime? @db.Timestamptz
+  checkOutTime DateTime? @db.Timestamptz
+  hoursWorked  Float?
+  notes        String?
+  organizationId String
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  employee Employee @relation(fields: [employeeId], references: [employeeId], onDelete: Cascade)
+
+  @@unique([employeeId, date])
+  @@index([organizationId])
+}
+
+model PayrollConfig {
+  configId            String   @id @default(cuid())
+  organizationId      String   @unique // Each org has one config
+  payFrequency        String   // e.g., "MONTHLY", "BI_WEEKLY"
+  payday              Int?     // e.g., 28 (day of month for MONTHLY) or day of week for WEEKLY
+  taxCalculationMethod String  // e.g., "PROGRESSIVE", "FLAT_RATE"
+  overtimeRate        Float?
+  currency            String   @default("USD")
+  statutoryDeductions Json?    // e.g., { "social_security_rate": 0.05, "income_tax_brackets": [...] }
+  companyInfo         Json?    // { name, address, taxId }
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+}
+
+model Payroll {
+  payrollId     String    @id @default(cuid())
+  employeeId    String
+  payPeriodStart DateTime @db.Date
+  payPeriodEnd  DateTime @db.Date
+  paymentDate   DateTime @db.Date
+  grossEarnings Float
+  totalDeductions Float
+  netPay        Float
+  status        String    @default("PENDING") // PENDING, PROCESSING, COMPLETED, FAILED
+  processingLogs Json?    // Store logs or error messages
+  organizationId String
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  employee Employee @relation(fields: [employeeId], references: [employeeId])
+  payslips Payslip[]
+  @@index([organizationId])
+}
+
+model Payslip {
+  payslipId        String    @id @default(cuid())
+  payrollId        String
+  generatedDate    DateTime  @default(now())
+  fileUrl          String?   // Link to PDF or other format
+  earningsBreakdown Json     // { "basic": 5000, "hra": 2000 }
+  deductionsBreakdown Json   // { "tax": 1000, "provident_fund": 500 }
+  summaryInfo      Json      // { "total_working_days": 22, "lop_days": 1 }
+  notes            String?
+  organizationId String
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  payroll Payroll @relation(fields: [payrollId], references: [payrollId], onDelete: Cascade)
+  @@index([organizationId])
 }

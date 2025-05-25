@@ -12,7 +12,11 @@
     "prepare-husky": "npx husky init; echo \"# pnpm test\nnpx lint-staged\" > .husky/pre-commit; echo \"pnpm build\" > .husky/pre-push",
     "test": "echo \"No tests specified\" && exit 0",
     "prisma-studio": "prisma studio",
+    "db:seed": "prisma db seed",
     "translate": "node src/scripts/translate.mjs"
+  },
+  "prisma": {
+    "seed": "ts-node --compiler-options {\\\"module\\\":\\\"CommonJS\\\"} prisma/seed.ts"
   },
   "dependencies": {
     "@auth/core": "^0.38.0",
@@ -20,7 +24,7 @@
     "@aws-sdk/client-s3": "^3.758.0",
     "@aws-sdk/s3-request-presigner": "^3.758.0",
     "@hookform/resolvers": "^3.10.0",
-    "@prisma/client": "^6.5.0",
+    "@prisma/client": "^6.8.2",
     "@radix-ui/react-avatar": "^1.1.3",
     "@radix-ui/react-checkbox": "^1.1.3",
     "@radix-ui/react-dialog": "^1.1.6",
@@ -53,7 +57,6 @@
     "next": "15.1.6",
     "next-auth": "^4.24.11",
     "next-themes": "^0.4.6",
-    "prisma": "^6.5.0",
     "react": "^19.0.0",
     "react-day-picker": "8.10.1",
     "react-dom": "^19.0.0",
@@ -89,6 +92,7 @@
     "lint-staged": "^15.4.3",
     "postcss": "^8",
     "prettier": "^3.4.2",
+    "prisma": "^6.8.2",
     "tailwindcss": "^3.4.1",
     "typescript": "^5",
     "typescript-eslint": "^8.22.0"
