@@ -115,17 +115,12 @@ const MyLeaveApplicationsPage = () => {
   // --- tRPC Queries ---
   const employeeId = session?.user?.employeeId;
 
-  const { data: leaveTypes, isLoading: isLoadingLeaveTypes } = api.leaveType.listByOrg.useQuery(
+  const { data: leaveTypesData, isLoading: isLoadingLeaveTypes, isError: isErrorLeaveTypes } = api.leaveType.listByOrg.useQuery(
     undefined, // No input for listByOrg for all types in an org
     { enabled: !!employeeId } // Only fetch if employeeId is available
   );
+  // Removed api.leaveApplication.getAllLeaveBalancesForEmployee.useQuery()
 
-  const { data: leaveBalances, isLoading: isLoadingBalances, refetch: refetchBalances } = 
-    api.leaveApplication.getAllLeaveBalancesForEmployee.useQuery(
-    { employeeId: employeeId!, year: currentYear }, // `!` assumes employeeId will be there if query is enabled
-    { enabled: !!employeeId }
-  );
-  
   const { data: applications, isLoading: isLoadingApplications, refetch: refetchApplications } = 
     api.leaveApplication.listForEmployee.useQuery(
     { employeeId: employeeId! }, // `!` assumes employeeId will be there
@@ -137,8 +132,8 @@ const MyLeaveApplicationsPage = () => {
     resolver: zodResolver(createLeaveApplicationSchema),
     defaultValues: {
       leaveTypeId: '',
-      startDate: undefined, // Set to undefined initially
-      endDate: undefined,   // Set to undefined initially
+      startDate: undefined, 
+      endDate: undefined,   
       reason: '',
     },
   });
@@ -148,7 +143,10 @@ const MyLeaveApplicationsPage = () => {
     onSuccess: () => {
       toast({ title: 'Success', description: 'Leave application submitted.' });
       refetchApplications();
-      refetchBalances(); // Balances might change
+      // Individual balances will refetch if their underlying data changes, 
+      // or we could trigger a specific refetch if a common query key is used for all balances.
+      // For now, relying on cache invalidation or manual refetch on the leave types list if needed.
+      // For simplicity, will not add explicit balance refetch here as it's per-type now.
       setIsApplyLeaveDialogOpen(false);
       applyLeaveForm.reset({ leaveTypeId: '', startDate: undefined, endDate: undefined, reason: '' });
     },
@@ -232,27 +230,30 @@ const MyLeaveApplicationsPage = () => {
       {/* Leave Balances Section */}
       <div className="mb-8 p-4 border rounded-lg shadow bg-gray-50">
         <h2 className="text-xl font-semibold mb-4">My Leave Balances ({currentYear})</h2>
-        {isLoadingBalances && (
+        {isLoadingLeaveTypes && (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {[...Array(3)].map((_, i) => <Skeleton key={i} className="h-20 w-full" />)}
+            {[...Array(3)].map((_, i) => <Skeleton key={`bal_skel_${i}`} className="h-24 w-full" />)}
           </div>
         )}
-        {!isLoadingBalances && leaveBalances && leaveBalances.length > 0 && (
+        {isErrorLeaveTypes && (
+            <p className="text-sm text-red-600">Could not load leave types to determine balances.</p>
+        )}
+        {!isLoadingLeaveTypes && !isErrorLeaveTypes && leaveTypesData && leaveTypesData.length > 0 && (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {leaveBalances.map((balance) => (
-              <div key={balance.leaveTypeId} className="p-3 border rounded-md bg-white shadow-sm">
-                <h3 className="font-medium text-blue-600">{balance.leaveTypeName}</h3>
-                <p className="text-sm text-gray-600">Allocated: {balance.allocatedDays}</p>
-                <p className="text-sm text-gray-600">Taken: {balance.daysTaken}</p>
-                <p className="text-sm font-semibold text-green-600">Available: {balance.availableDays}</p>
-              </div>
+            {leaveTypesData.map((leaveType) => (
+              <LeaveBalanceDisplay
+                key={leaveType.id}
+                employeeId={employeeId!}
+                leaveTypeId={leaveType.id}
+                leaveTypeName={leaveType.name}
+                year={currentYear}
+              />
             ))}
           </div>
         )}
-        {!isLoadingBalances && (!leaveBalances || leaveBalances.length === 0) && (
-          <p className="text-sm text-muted-foreground">No leave balance information available or no leave types configured.</p>
+        {!isLoadingLeaveTypes && !isErrorLeaveTypes && (!leaveTypesData || leaveTypesData.length === 0) && (
+          <p className="text-sm text-muted-foreground">No leave types configured for your organization.</p>
         )}
-        {/* TODO: Handle error state for balances if api.leaveApplication.getAllLeaveBalancesForEmployee can return specific errors */}
       </div>
       
       {/* Apply for Leave Dialog */}
@@ -271,7 +272,7 @@ const MyLeaveApplicationsPage = () => {
                     <FormLabel>Leave Type</FormLabel>
                     <Select onValueChange={field.onChange} defaultValue={field.value} disabled={isLoadingLeaveTypes}>
                       <FormControl>
-                        <SelectTrigger>{isLoadingLeaveTypes ? "Loading types..." : (field.value ? leaveTypes?.find(lt => lt.id === field.value)?.name : "Select leave type")}</SelectTrigger>
+                        <SelectTrigger>{isLoadingLeaveTypes ? "Loading types..." : (field.value ? leaveTypesData?.find(lt => lt.id === field.value)?.name : "Select leave type")}</SelectTrigger>
                       </FormControl>
                       <SelectContent>
                         {leaveTypes?.map((type) => (
@@ -279,7 +280,7 @@ const MyLeaveApplicationsPage = () => {
                             {type.name} ({type.defaultDays} days)
                           </SelectItem>
                         ))}
-                        {(!leaveTypes || leaveTypes.length === 0) && !isLoadingLeaveTypes && <p className="p-2 text-sm text-muted-foreground">No leave types available.</p>}
+                        {(!leaveTypesData || leaveTypesData.length === 0) && !isLoadingLeaveTypes && <p className="p-2 text-sm text-muted-foreground">No leave types available.</p>}
                       </SelectContent>
                     </Select>
                     <FormMessage />
