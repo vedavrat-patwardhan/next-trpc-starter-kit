@@ -6,9 +6,11 @@ import { employeeRouter } from './employee';
 import { salaryComponentRouter } from './salaryComponent';
 import { salaryStructureRouter } from './salaryStructure';
 import { salaryAssignmentRouter } from './salaryAssignment';
-import { leaveTypeRouter } from './leaveType'; // Added leaveTypeRouter import
-import { leaveApplicationRouter } from './leaveApplication'; // Added leaveApplicationRouter import
-import { holidayRouter } from './holiday'; // Added holidayRouter import
+import { leaveTypeRouter } from './leaveType';
+import { leaveApplicationRouter } from './leaveApplication';
+import { holidayRouter } from './holiday';
+import { attendanceRouter } from './attendance';
+import { dashboardRouter } from './dashboard'; // Added dashboardRouter import
 
 export const appRouter = router({
   permission: permissionRouter,
@@ -18,9 +20,11 @@ export const appRouter = router({
   salaryComponent: salaryComponentRouter,
   salaryStructure: salaryStructureRouter,
   salaryAssignment: salaryAssignmentRouter,
-  leaveType: leaveTypeRouter,               // Added leaveTypeRouter
-  leaveApplication: leaveApplicationRouter, // Added leaveApplicationRouter
-  holiday: holidayRouter,                   // Added holidayRouter
+  leaveType: leaveTypeRouter,
+  leaveApplication: leaveApplicationRouter,
+  holiday: holidayRouter,
+  attendance: attendanceRouter,
+  dashboard: dashboardRouter, // Added dashboardRouter
   // Add other routers here
 });
 

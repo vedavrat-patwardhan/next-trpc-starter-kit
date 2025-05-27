@@ -285,37 +285,63 @@ model PayrollConfig {
 
 model Payroll {
   payrollId     String    @id @default(cuid())
-  employeeId    String
+  // employeeId    String // Removed as a payroll run is for multiple employees
   payPeriodStart DateTime @db.Date
   payPeriodEnd  DateTime @db.Date
-  paymentDate   DateTime @db.Date
-  grossEarnings Float
-  totalDeductions Float
-  netPay        Float
-  status        String    @default("PENDING") // PENDING, PROCESSING, COMPLETED, FAILED
+  paymentDate   DateTime? @db.Date // Optional: Set when run is finalized/paid
+  status        String    @default("DRAFT") // PENDING_APPROVAL, PROCESSING, COMPLETED, FAILED
   processingLogs Json?    // Store logs or error messages
-  organizationId String
+  organizationId String   // Ensures payroll is scoped to an organization
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
-  employee Employee @relation(fields: [employeeId], references: [employeeId])
+  // employee Employee @relation(fields: [employeeId], references: [employeeId]) // Removed
   payslips Payslip[]
   @@index([organizationId])
+  @@index([organizationId, status])
+  @@index([organizationId, payPeriodStart, payPeriodEnd])
 }
 
 model Payslip {
   payslipId        String    @id @default(cuid())
   payrollId        String
+  employeeId       String    // Added: Each payslip belongs to one employee for that run
   generatedDate    DateTime  @default(now())
   fileUrl          String?   // Link to PDF or other format
   earningsBreakdown Json     // { "basic": 5000, "hra": 2000 }
   deductionsBreakdown Json   // { "tax": 1000, "provident_fund": 500 }
-  summaryInfo      Json      // { "total_working_days": 22, "lop_days": 1 }
+  grossEarnings    Float     // Added for clarity
+  totalDeductions  Float     // Added for clarity
+  netPay           Float     // Added for clarity
+  summaryInfo      Json?     // { "total_working_days": 22, "lop_days": 1 }, made optional
   notes            String?
-  organizationId String
+  organizationId String    // Added: For scoping and easier querying of payslips by org
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @updatedAt
 
-  payroll Payroll @relation(fields: [payrollId], references: [payrollId], onDelete: Cascade)
+  payroll  Payroll  @relation(fields: [payrollId], references: [payrollId], onDelete: Cascade)
+  employee Employee @relation(fields: [employeeId], references: [employeeId], onDelete: Cascade) // Added relation
+
   @@index([organizationId])
+  @@index([payrollId])
+  @@index([employeeId])
+  @@index([organizationId, employeeId])
+}
+
+model Notification {
+  notificationId String    @id @default(cuid())
+  userId         String    // The ID of the user who should receive the notification
+  organizationId String    // For scoping
+  message        String
+  isRead         Boolean   @default(false)
+  link           String?   // Optional URL to navigate to when notification is clicked
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  user User @relation(fields: [userId], references: [userId], onDelete: Cascade)
+  // organization Organization @relation(fields: [organizationId], references: [organizationId]) // If needed explicitly
+
+  @@index([userId])
+  @@index([organizationId])
+  @@index([isRead])
 }
