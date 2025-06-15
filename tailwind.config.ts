@@ -1,5 +1,6 @@
 import tailwindAnimate from 'tailwindcss-animate';
 import type { Config } from 'tailwindcss';
+import defaultTheme from 'tailwindcss/defaultTheme';
 
 const config: Config = {
   darkMode: ['class'],
@@ -13,20 +14,20 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        // Primary brand color - blue from the sign-in button and brand
+        // New primary brand color
         primary: {
-          DEFAULT: 'hsl(var(--primary))',
-          foreground: 'hsl(var(--primary-foreground))',
-          50: '#E6F0FA',
-          100: '#CCE0F5',
-          200: '#99C2EB',
-          300: '#66A3E0',
-          400: '#3385D6',
-          500: '#0066CC', // Main brand color
-          600: '#0052A3',
-          700: '#003D7A',
-          800: '#002952',
-          900: '#001429',
+          DEFAULT: '#4A90E2', // New default primary color
+          foreground: 'hsl(var(--primary-foreground))', // Assuming this remains for contrast text
+          50: '#EAF2FB',
+          100: '#D5E5F8',
+          200: '#ABCBF0',
+          300: '#82B1E9',
+          400: '#5898E3',
+          500: '#4A90E2',
+          600: '#3A73B5',
+          700: '#2B5688',
+          800: '#1C3A5A',
+          900: '#0E1D2D',
         },
         // Secondary colors - grays and dark navy
         secondary: {
@@ -64,6 +65,20 @@ const config: Config = {
           warning: '#F59E0B',
           info: '#3B82F6',
         },
+        // New Accent Color
+        appAccent: {
+          DEFAULT: '#F5A623',
+          50: '#FEF9E9',
+          100: '#FDF3D3',
+          200: '#FCE7A8',
+          300: '#FADCA0',
+          400: '#F8C570',
+          500: '#F5A623', // Default Accent
+          600: '#D48F1E',
+          700: '#B37819',
+          800: '#926114',
+          900: '#714A0F',
+        },
         // shadcn/ui required colors
         border: 'hsl(var(--border))',
         input: 'hsl(var(--input))',
@@ -77,7 +92,7 @@ const config: Config = {
           DEFAULT: 'hsl(var(--muted))',
           foreground: 'hsl(var(--muted-foreground))',
         },
-        accent: {
+        accent: { // This is for shadcn/ui, refers to CSS vars
           DEFAULT: 'hsl(var(--accent))',
           foreground: 'hsl(var(--accent-foreground))',
         },
@@ -143,6 +158,10 @@ const config: Config = {
       animation: {
         'accordion-down': 'accordion-down 0.2s ease-out',
         'accordion-up': 'accordion-up 0.2s ease-out',
+      },
+      fontFamily: {
+        sans: ['var(--font-inter)', ...defaultTheme.fontFamily.sans],
+        heading: ['var(--font-poppins)', ...defaultTheme.fontFamily.sans],
       },
     },
   },

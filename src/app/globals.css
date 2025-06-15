@@ -15,8 +15,8 @@
     --popover-foreground: 222 47% 11%;
 
     /* Primary blue from Figma */
-    --primary: 210 100% 40%;
-    --primary-foreground: 0 0% 100%;
+    --primary: 210 70% 60%; /* Updated Primary: #4A90E2 */
+    --primary-foreground: 0 0% 100%; /* White text on new primary */
 
     /* Secondary colors */
     --secondary: 220 9% 46%;
@@ -25,15 +25,15 @@
     --muted: 220 14% 96%;
     --muted-foreground: 220 9% 46%;
 
-    --accent: 220 14% 96%;
-    --accent-foreground: 222 47% 11%;
+    --accent: 38 90% 55%; /* Updated Accent: #F5A623 */
+    --accent-foreground: 222 47% 11%; /* Dark text on new accent */
 
     --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 100%;
 
     --border: 220 13% 91%;
     --input: 220 13% 91%;
-    --ring: 210 100% 40%;
+    --ring: 210 70% 60%; /* Updated Ring to match new primary */
 
     --radius: 0.375rem;
   }
@@ -48,8 +48,8 @@
     --popover: 222 47% 11%;
     --popover-foreground: 0 0% 100%;
 
-    --primary: 210 100% 40%;
-    --primary-foreground: 0 0% 100%;
+    --primary: 210 70% 60%; /* Updated Primary: #4A90E2 */
+    --primary-foreground: 0 0% 100%; /* White text on new primary */
 
     --secondary: 217 33% 17%;
     --secondary-foreground: 0 0% 100%;
@@ -57,15 +57,15 @@
     --muted: 217 33% 17%;
     --muted-foreground: 215 20% 65%;
 
-    --accent: 217 33% 17%;
-    --accent-foreground: 0 0% 100%;
+    --accent: 38 90% 55%; /* Updated Accent: #F5A623 */
+    --accent-foreground: 222 47% 11%; /* Dark text on new accent */
 
     --destructive: 0 63% 31%;
     --destructive-foreground: 0 0% 100%;
 
     --border: 217 33% 17%;
     --input: 217 33% 17%;
-    --ring: 210 100% 40%;
+    --ring: 210 70% 60%; /* Updated Ring to match new primary */
   }
 }
 
@@ -87,7 +87,7 @@
   h4,
   h5,
   h6 {
-    @apply font-semibold tracking-tight;
+    @apply font-heading font-semibold tracking-tight;
   }
 
   h1 {
