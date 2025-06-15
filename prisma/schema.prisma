@@ -7,3 +7,220 @@ datasource db {
   url       = env("DATABASE_URL")
   directUrl = env("DIRECT_URL")
 }
+
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String?   @unique
+  emailVerified DateTime?
+  image         String?
+  password      String? // Added password field
+  accounts      Account[]
+  sessions      Session[]
+  roles         UserRole[]
+  employee      Employee? // One-to-one with Employee
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+enum RoleName {
+  ADMIN
+  HR
+  EMPLOYEE
+}
+
+model Role {
+  id          String     @id @default(cuid())
+  name        RoleName   @unique
+  users       UserRole[]
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+}
+
+model UserRole {
+  userId String
+  roleId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role   Role   @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@id([userId, roleId])
+}
+
+model Employee {
+  id                String   @id @default(cuid())
+  userId            String   @unique
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  employeeId        String   @unique
+  department        String?
+  designation       String?
+  dateOfJoining     DateTime
+  reportingManagerId String?  // Self-relation for reporting manager
+  reportingManager  Employee? @relation("ReportingManager", fields: [reportingManagerId], references: [id])
+  subordinates      Employee[] @relation("ReportingManager") // Employees reporting to this manager
+
+  salaryStructure   SalaryStructure?
+  payslips          Payslip[]
+  leaveApplications LeaveApplication[]
+  attendances       Attendance[]
+
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+}
+
+model SalaryStructure {
+  id                  String              @id @default(cuid())
+  employeeId          String              @unique
+  employee            Employee            @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  basicSalary         Float
+  earningComponents   EarningComponent[]
+  deductionComponents DeductionComponent[]
+
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+}
+
+enum ComponentType {
+  FIXED
+  PERCENTAGE
+}
+
+model EarningComponent {
+  id                String          @id @default(cuid())
+  salaryStructureId String
+  salaryStructure   SalaryStructure @relation(fields: [salaryStructureId], references: [id], onDelete: Cascade)
+  name              String          // e.g., HRA, Travel Allowance
+  type              ComponentType   // Fixed amount or percentage of basic
+  value             Float           // Amount or percentage value
+
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+}
+
+model DeductionComponent {
+  id                String          @id @default(cuid())
+  salaryStructureId String
+  salaryStructure   SalaryStructure @relation(fields: [salaryStructureId], references: [id], onDelete: Cascade)
+  name              String          // e.g., Provident Fund, Professional Tax
+  type              ComponentType   // Fixed amount or percentage of basic
+  value             Float           // Amount or percentage value
+
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+}
+
+model Payslip {
+  id                  String    @id @default(cuid())
+  employeeId          String
+  employee            Employee  @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  month               Int       // e.g., 1 for January
+  year                Int       // e.g., 2024
+  grossSalary         Float
+  totalDeductions     Float
+  netSalary           Float
+  paymentDate         DateTime?
+  // Store a snapshot of earnings and deductions for historical accuracy
+  earningsBreakdown   Json      // { "HRA": 10000, "Basic": 20000 }
+  deductionsBreakdown Json      // { "PF": 1800, "Tax": 2000 }
+
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  @@unique([employeeId, month, year]) // Ensure one payslip per employee per month
+}
+
+model LeaveType {
+  id                String             @id @default(cuid())
+  name              String             @unique // e.g., Annual, Sick, Casual
+  defaultDays       Int?               // Default number of days for this leave type per year
+  leaveApplications LeaveApplication[]
+
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+}
+
+enum LeaveStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
+}
+
+model LeaveApplication {
+  id          String      @id @default(cuid())
+  employeeId  String
+  employee    Employee    @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  leaveTypeId String
+  leaveType   LeaveType   @relation(fields: [leaveTypeId], references: [id])
+  startDate   DateTime
+  endDate     DateTime
+  reason      String?
+  status      LeaveStatus @default(PENDING)
+  approvedBy  String?     // User ID of HR/Manager who approved
+  comments    String?     // Comments from approver
+
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+}
+
+enum AttendanceStatus {
+  PRESENT
+  ABSENT
+  ON_LEAVE
+  HOLIDAY
+  WEEKEND
+}
+
+model Attendance {
+  id          String           @id @default(cuid())
+  employeeId  String
+  employee    Employee         @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  date        DateTime         @db.Date // Only the date part is relevant
+  status      AttendanceStatus
+  checkInTime DateTime?
+  checkOutTime DateTime?
+  notes       String?          // Any notes, e.g., reason for late check-in
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([employeeId, date]) // Ensure one attendance record per employee per day
+}
